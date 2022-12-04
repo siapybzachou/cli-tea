@@ -1,5 +1,7 @@
 // deno-lint-ignore-file no-cond-assign
 
+import { flatmap } from "./safe-utils.ts"
+
 /**
  * we have our own implementation because open source is full of weird
  * but *almost* valid semver schemes, eg:
@@ -86,20 +88,33 @@ export function parse(input: string) {
 
   let match: RegExpMatchArray | number | null | undefined
 
-  if (match = input.match(/^v?(\d+)\.(\d+)\.(\d+)?$/)) {
-    v.major = parseInt(match[1])!
-    v.minor = parseInt(match[2])!
-    v.patch = parseInt(match[3] ?? '0')!
+  if (match = input.match(/^v?(\d+)\.(\d+)\.(\d+)(\.(\d+))?$/)) {
+    v.major = parseInt(match[1])
+    v.minor = parseInt(match[2])
+    v.patch = parseInt(match[3])
+    if (match[5]) {
+      v.patch *= 100
+      v.patch += parseInt(match[5])
+    }
+  } else if (match = input.match(/^v?(\d+)\.(\d+)\.(\d+)[a-z]?$/)) {
+    v.major = parseInt(match[1])
+    v.minor = parseInt(match[2])
+
+    v.patch = parseInt(match[3]) * 100 + char_to_num(match[4])
   } else if (match = input.match(/^v?(\d+)\.(\d+)$/)) {
-    v.major = parseInt(match[1])!
-    v.minor = parseInt(match[2])!
+    v.major = parseInt(match[1])
+    v.minor = parseInt(match[2])
   } else if (match = input.match(/^v?(\d+)$/)) {
-    v.major = parseInt(match[1])!
+    v.major = parseInt(match[1])
   } else {
     return undefined
   }
 
   return v
+
+  function char_to_num(c: string) {
+    return c.charCodeAt(0) - 'a'.charCodeAt(0) + 1
+  }
 }
 
 /// we don’t support as much as node-semver but we refuse to do so because it is badness
@@ -225,9 +240,11 @@ export class Range {
 
 
 function _compare(a: SemVer, b: SemVer): number {
-  if (a.major != b.major) return a.major - b.major
-  if (a.minor != b.minor) return a.minor - b.minor
-  return a.patch - b.patch
+  for (let i = 0; i < 3; i++) {
+    if (a.components()[i] < b.components()[i]) return -1
+    if (a.components()[i] > b.components()[i]) return 1
+  }
+  return (a.speck ?? 0) - (b.speck ?? 0)
 }
 export { _compare as compare }
 

@@ -4,15 +4,17 @@ import SemVer, * as semver from "utils/semver.ts"
 
 Deno.test("semver", async test => {
   await test.step("sort", () => {
-    const input = [new SemVer([1,2,3]), new SemVer("2.3.4"), new SemVer("1.2.4")]
+    const input = [new SemVer([1,2,3]), new SemVer("2.3.4"), new SemVer("1.2.4"), semver.parse("1.2.3.1")!]
     const sorted1 = input.sort(semver.compare)
     const sorted2 = input.sort()
 
-    assertEquals(sorted1.join(","), "1.2.3,1.2.4,2.3.4")
-    assertEquals(sorted2.join(","), "1.2.3,1.2.4,2.3.4")
+    assertEquals(sorted1.map(x=>x.raw).join(","), "1.2.3,1.2.3.1,1.2.4,2.3.4")
+    assertEquals(sorted2.map(x=>x.raw).join(","), "1.2.3,1.2.3.1,1.2.4,2.3.4")
   })
 
   await test.step("parse", () => {
+    assertEquals(semver.parse("1.2.3.4.5"), undefined)
+    assertEquals(semver.parse("1.2.3.4")?.toString(), "1.2.3")
     assertEquals(semver.parse("1.2.3")?.toString(), "1.2.3")
     assertEquals(semver.parse("1.2")?.toString(), "1.2.0")
     assertEquals(semver.parse("1")?.toString(), "1.0.0")
@@ -57,6 +59,8 @@ Deno.test("semver", async test => {
 
     const e = new semver.Range("~1")
     assertEquals(e.toString(), "^1")  // indeed: we change the ~ to ^
+
+    assertThrows(() => new semver.Range("^1.2.3.4"))
   })
 
   await test.step("intersection", async test => {
